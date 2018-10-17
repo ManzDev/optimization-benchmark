@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabulator/4.0.1/css/tabulator.min.css">
+  <link rel="stylesheet" href="tabulator_site.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css?family=Arimo');
+    body {
+      margin: 0 3em;
+    }
+    body, table, td {
+      font-family: 'Arimo';
+    }
+    h1 {
+      text-align: center;
+      font-size: 72px;
+      margin: 16px;
+    }
+    .author {
+      margin: 2em;
+      text-align: center;
+    }
+    th {
+      font-family: Arial, sans-serif;
+    }
+    .panel {
+      display: flex;
+      justify-content: center;
+      width: 900px;
+      margin: 2em auto;
+    }
+    button {
+      color: #FFF;
+      border: 2px solid #EEE;
+      background: linear-gradient(to bottom, #4163D6, #2E3698);
+      border-radius: 5px;
+      text-decoration: none;
+      padding: 0.6em 1.4em 0.8em;
+      cursor: pointer;
+      display: inline-block;
+      margin: 8px 0 0 0;
+    }
+    button:hover {
+      background: linear-gradient(to bottom, #CF2E2E, #932828);
+    }
+    fieldset {
+      border: 1px solid #ddd;
+      color: #999;
+    }
+    fieldset.groupby {
+      display: flex;
+      flex-direction: column;
+    }
+    .good, .bad, .bug {
+      color: #fff;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    .good { background: green; }
+    .bad { background: red; }
+    .bug { background: #555; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tabulator/4.0.1/js/tabulator.min.js"></script>
+  <title>HTML/CSS/JS/PNG/JPG/SVG Optimization benchmarks</title>
+</head>
+<body>
+
+  <h1>Optimization Benchmarks</h1>
+
+  <div class="panel">
+    <fieldset>
+      <legend>Benchmarks</legend>
+      <div>
+        <button id="html-bench">HTML Benchmark</button>
+        <button id="css-bench">CSS Benchmark</button>
+        <button id="js-bench">JS Benchmark</button>
+      </div>        
+      <button id="png-bench">PNG Benchmark</button>
+      <button id="jpg-bench">JPG Benchmark</button>
+      <button id="svg-bench">SVG Benchmark</button>
+    </fieldset>
+
+    <fieldset class="groupby">
+      <legend>Group By</legend>
+      <button id="byfile">Agrupar por fichero testeado</button>
+      <button id="byname">Agrupar por optimizador</button>
+    </fieldset>
+  </div>
+
+  <div id="table"></div>
+
+  <div class="author">
+    <p>2018 · Por <a href="https://twitter.com/Manz">@Manz</a></p>
+  </div>
+
+  <script>
+      let updateData = jsonfile => {
+        fetch(`json/${jsonfile}`).then(r => r.text()).then(data => {
+        
+          let spParams = { legend: e => (e < 100) ? e + '%' : '0%' };
+
+          let mutatorTime = v => {
+            let type;
+            if (v === 'BUG')
+              return '<span class="bug">BUG</span>';
+            else 
+              type = (v < 0.75) ? 'good' : (v < 1.5) ? 'normal' : 'bad';
+            return `<span class="${type}">${v}s</span>`;
+          };
+
+          let mutatorSize = v => {
+            return v;
+          };
+          
+          var table = new Tabulator('#table', {
+            layout: 'fitDataFill',
+            columns: [
+              { title: 'ID', field: 'id', width: 30 },
+              { title: 'Nombre', field: 'name' },
+              { title: 'Fichero', field: 'file' },
+              { title: 'Level', field: 'level' },
+              { title: 'Tamaño', field: 'size', mutator: mutatorSize },
+              { title: 'Porcentaje compresión', formatter: 'progress', formatterParams: spParams, field: 'sizePercent' },
+              { title: 'Tiempo', field: 'time', formatter: 'html', mutator: mutatorTime },
+            ],
+            groupBy: 'file',
+            index: 'id'
+          });
+          table.setData(data);
+
+          document.querySelector('#byfile').onclick = () => { 
+            table.setGroupBy('file'); 
+            table.hideColumn('file');
+          }
+          document.querySelector('#byname').onclick = () => { 
+            table.setGroupBy('name'); 
+            table.showColumn('file');
+          }
+        });
+      };
+
+      document.querySelector('#html-bench').onclick = () => updateData('html-benchmark.json');
+      document.querySelector('#css-bench').onclick = () => updateData('css-benchmark.json');
+      document.querySelector('#js-bench').onclick = () => updateData('js-benchmark.json');
+      document.querySelector('#png-bench').onclick = () => updateData('png-benchmark.json');
+      document.querySelector('#jpg-bench').onclick = () => updateData('jpg-benchmark.json');
+      document.querySelector('#svg-bench').onclick = () => updateData('svg-benchmark.json');
+
+      updateData('html-benchmark.json');
+
+  </script>
+</body>
+</html>
