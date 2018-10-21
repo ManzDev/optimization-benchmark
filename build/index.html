@@ -54,17 +54,18 @@
       display: flex;
       flex-direction: column;
     }
-    .good, .bad, .bug {
+    .good, .bad, .verybad, .bug {
       color: #fff;
       padding: 2px 4px;
       border-radius: 4px;
     }
     .good { background: green; }
-    .bad { background: red; }
+    .bad { background: #e76a21; }
+    .verybad { background: red; }
     .bug { background: #555; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tabulator/4.0.1/js/tabulator.min.js"></script>
-  <title>HTML/CSS/JS/PNG/JPG/SVG Optimization benchmarks</title>
+  <title>HTML/CSS/JS/IMAGE/AUDIO/VIDEO Optimization benchmarks</title>
 </head>
 <body>
 
@@ -81,6 +82,10 @@
       <button id="png-bench">PNG Benchmark</button>
       <button id="jpg-bench">JPG Benchmark</button>
       <button id="svg-bench">SVG Benchmark</button>
+      <div>
+        <button id="audio-bench">AUDIO Benchmark</button>
+        <button id="video-bench">VIDEO Benchmark</button>
+      </div>
     </fieldset>
 
     <fieldset class="groupby">
@@ -100,19 +105,34 @@
       let updateData = jsonfile => {
         fetch(`json/${jsonfile}`).then(r => r.text()).then(data => {
         
-          let spParams = { legend: e => (e < 100) ? e + '%' : '0%' };
+          let spParams = { legend: e => (e < 100) ? e + '%' : '-' };
 
           let mutatorTime = v => {
             let type;
             if (v === 'BUG')
               return '<span class="bug">BUG</span>';
             else 
-              type = (v < 0.75) ? 'good' : (v < 1.5) ? 'normal' : 'bad';
+              type = (v < 0.75) ? 'good' : (v < 2) ? 'normal' : (v < 5) ? 'bad' : 'verybad';
             return `<span class="${type}">${v}s</span>`;
           };
 
+          const round = size => {
+            if (size == 'BUG')
+              return 'BUG';
+
+            let tam = (~~((size / 1024) * 100)) / 100;
+            if (tam < 1024)
+              return tam + 'KB';
+
+            tam = (~~((tam / 1024) * 100)) / 100;
+            return tam + 'MB';
+          };
+
           let mutatorSize = v => {
-            return v;
+            let [now, before] = v.split(' / ');
+            if (now == 'BUG')
+              return '-';
+            return round(now) + ' de ' + round(before);
           };
           
           var table = new Tabulator('#table', {
@@ -148,6 +168,8 @@
       document.querySelector('#png-bench').onclick = () => updateData('png-benchmark.json');
       document.querySelector('#jpg-bench').onclick = () => updateData('jpg-benchmark.json');
       document.querySelector('#svg-bench').onclick = () => updateData('svg-benchmark.json');
+      document.querySelector('#audio-bench').onclick = () => updateData('audio-benchmark.json');
+      document.querySelector('#video-bench').onclick = () => updateData('video-benchmark.json');
 
       updateData('html-benchmark.json');
 

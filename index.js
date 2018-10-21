@@ -2,13 +2,20 @@ const fs = require('fs');
 const process = require('process');
 const child = require('child_process');
 
-const filesize = file => fs.statSync(file).size;
+const filesize = file => {
+  return fs.existsSync(file) ? fs.statSync(file).size : 0;
+};
 
 const exec = (name, command, input, output) => {
   if (fs.existsSync(output))
     fs.unlinkSync(output);
   const start = process.hrtime();
-  child.execSync(command.replace('$FILE', input));
+  try {
+    child.execSync(command.replace('$FILE', input));
+  }
+  catch (err) {
+    console.log(err);
+  }
   const end = process.hrtime(start);
   const size = filesize(output);
   return {
@@ -18,9 +25,12 @@ const exec = (name, command, input, output) => {
   }
 };
 
-const runtest = (jsonfile) => {
-  const results = [];
+const runtest = (jsonfile, test) => {
+  let results = [];
   let id = 0;
+
+  if (test != undefined)
+    tests = tests.filter(e => e.name == test);
 
   files.forEach(testfile => {
     const originalSize = filesize(`datasets/${testfile}`);
@@ -30,7 +40,7 @@ const runtest = (jsonfile) => {
         o = exec(e.name, e.cmd, `datasets/${testfile}`, e.output || 'data.txt');
       }
       catch (err) {
-        console.log(err);
+        console.log('ERROR');
         o = {
           size: 'BUG',
           time: 'BUG'
@@ -48,8 +58,21 @@ const runtest = (jsonfile) => {
       console.log(testfile, '\t', e.name, '\t', o.size, '\t', o.time, ' ....done!');
     });  
   });
+
+  if (test != undefined) {
+    // let contents = fs.readFileSync(`build/json/${jsonfile}`);
+    // let oldresults = JSON.parse(contents);
+    // console.log(oldresults);
+    // oldresults.filter(e => e.name != test);
+    // results = [ ...oldresults, ...results ];
+  }
   fs.writeFileSync(`build/json/${jsonfile}`, JSON.stringify(results));
 };
+
+const param = process.argv[2];
+
+if (param === undefined)
+  console.log(`Sintaxis:\n\n node index.js --all\n node index.js --png\n node index.js --css`)
 
 let files = [ 'bootstrap.css', 'fontawesome.css', 'foundation.css', 'material.css'];
 let tests = [
@@ -69,7 +92,8 @@ let tests = [
   { name: 'csswring', level: 'normal', cmd: 'npx csswring $FILE > data.txt' },  
 ];
 
-runtest('css-benchmark.json');
+if ((param === '--all') || (param === '--css'))
+  runtest('css-benchmark.json');
 
 files = [ 'google.html', 'amazon.html', 'twitter.html', 'youtube.html'];
 tests = [
@@ -79,7 +103,8 @@ tests = [
   { name: 'htmlnano', level: 'agressive', cmd: 'node htmlnano-cli.js $FILE data.txt --agressive' },
 ];
 
-runtest('html-benchmark.json');
+if ((param === '--all') || (param === '--html'))
+  runtest('html-benchmark.json');
 
 files = [ 'lodash.js', 'react.dev.js', 'vue.js', 'moment.js'];
 tests = [
@@ -89,7 +114,8 @@ tests = [
   { name: 'terser', level: 'with babel', cmd: 'npx babel --presets=env $FILE | npx terser --compress -o data.txt' },
 ];
 
-runtest('js-benchmark.json');
+if ((param === '--all') || (param === '--js'))
+  runtest('js-benchmark.json');
 
 files = [ 'screenshot.png', 'tiger.png', 'chrome.png'];
 tests = [
@@ -101,18 +127,28 @@ tests = [
    { name: 'advpng', level: 'normal (7z)', cmd: 'node copy.js $FILE data.txt && npx advpng -z -2 data.txt' },
    { name: 'advpng', level: 'extra (7z)', cmd: 'node copy.js $FILE data.txt && npx advpng -z -3 data.txt' },
    { name: 'advpng', level: 'insane (zopfli)', cmd: 'node copy.js $FILE data.txt && npx advpng -z -4 data.txt' },
-   { name: 'optipng', level: 'default (o2)', cmd: 'node copy.js $FILE data.txt && npx optipng data.txt' },
-   { name: 'optipng', level: 'fast (o0)', cmd: 'node copy.js $FILE data.txt && npx optipng -o0 data.txt' },
-   { name: 'optipng', level: 'slow (o7)', cmd: 'node copy.js $FILE data.txt && npx optipng -o7 data.txt' },
+   { name: 'optipng', level: 'default (o2)', cmd: 'node copy.js $FILE data.txt && npx optipng -strip all data.txt' },
+   { name: 'optipng', level: 'fast (o0)', cmd: 'node copy.js $FILE data.txt && npx optipng -o0 -strip all data.txt' },
+   { name: 'optipng', level: 'slow (o7)', cmd: 'node copy.js $FILE data.txt && npx optipng -o7 -strip all data.txt' },
    { name: 'pngcrush', level: 'default', cmd: 'npx pngcrush $FILE data.txt' },
    { name: 'pngcrush', level: 'brute force', cmd: 'npx pngcrush -brute $FILE data.txt' },
+   { name: 'pngrewrite', level: 'default', cmd: 'pngrewrite $FILE data.txt' },
    { name: 'pngout', level: 'default', cmd: 'npx pngout $FILE data.txt', output: 'data.txt.png' },
    { name: 'pngout', level: 'xtreme', cmd: 'npx pngout /s0 $FILE data.txt', output: 'data.txt.png' },
    { name: 'upng', level: 'normal', cmd: 'npx imagemin --plugin=upng $FILE >data.txt' },
-   { name: 'zopfli', level: 'normal', cmd: 'npx imagemin --plugin=zopfli $FILE >data.txt' },
+   { name: 'ect', level: 'level 1', cmd: 'node copy.js $FILE data.txt && npx ect -1 -s data.txt' },
+   { name: 'ect', level: 'level 9', cmd: 'node copy.js $FILE data.txt && npx ect -9 -s data.txt' },
+   { name: 'oxipng', level: 'default', cmd: 'oxipng --opt 0 --out data.txt --strip all $FILE' },
+   { name: 'pingo', level: 's0', cmd: 'node copy.js $FILE data.txt && pingo -s0 data.txt' },
+   { name: 'pngoptimizercl', level: 'default', cmd: 'node copy.js $FILE data.txt && pngoptimizercl -file:data.txt' },
+   { name: 'pngwolf', level: 'default', cmd: 'pngwolf --in=$FILE --out=data.txt' },
+   { name: 'truepng', level: 'default', cmd: 'node copy.js $FILE data.png && truepng data.png', output: 'data.png' },
+   { name: 'truepng', level: 'o4', cmd: 'node copy.js $FILE data.png && truepng data.png /o4', output: 'data.png' },   
+   { name: 'zopflipng', level: 'normal', cmd: 'npx zopflipng $FILE data.txt' },
 ];
 
-runtest('png-benchmark.json');
+if ((param === '--all') || (param === '--png'))
+  runtest('png-benchmark.json', process.argv[3]);
 
 files = [ 'fallout4.jpg', 'inception.jpg', 'santacruz.jpg'];
 let lev = 89;
@@ -133,7 +169,8 @@ tests = [
    { name: 'guetzli', level: 'slooow', cmd: 'npx guetzli $FILE data.txt' },   
 ];
 
-runtest('jpg-benchmark.json');
+if ((param === '--all') || (param === '--jpg'))
+  runtest('jpg-benchmark.json');
 
 files = [ 'awesome-tiger.svg', 'city-landscape.svg', 'road.svg' ];
 tests = [
@@ -143,4 +180,40 @@ tests = [
    { name: 'svg-cleaner', level: 'default', cmd: 'npx svg-cleaner $FILE data.txt' },
 ];
 
-runtest('svg-benchmark.json');
+if ((param === '--all') || (param === '--svg'))
+  runtest('svg-benchmark.json');
+
+files = [ 'gestation.wav' ];
+tests = [
+   { name: 'mp3', level: 'libmp3lame', cmd: 'ffmpeg -hide_banner -loglevel error -i $FILE -acodec libmp3lame -ab 1400K data.mp3', output: 'data.mp3' },
+   { name: 'mp3', level: 'libshine', cmd: 'ffmpeg -hide_banner -loglevel error -i $FILE -acodec libshine -ab 1400K data.mp3', output: 'data.mp3' },
+   { name: 'aac', level: 'aac', cmd: 'ffmpeg -hide_banner -loglevel error -i $FILE -ab 1400K data.aac', output: 'data.aac' },
+   { name: 'flac', level: 'normal', cmd: 'ffmpeg -hide_banner -loglevel error -i $FILE -ab 1400K data.flac', output: 'data.flac' },
+   { name: 'wavpack', level: 'wavpack', cmd: 'ffmpeg -hide_banner -loglevel error -i $FILE -acodec wavpack -strict -2 -ab 1400K data.wv', output: 'data.wv' },
+   { name: 'wavpack', level: 'libwavpack', cmd: 'ffmpeg -hide_banner -loglevel error -i $FILE -acodec libwavpack -strict -2 -ab 1400K data.wv', output: 'data.wv' },
+   { name: 'opus', level: 'opus', cmd: 'ffmpeg -hide_banner -loglevel error -i $FILE -acodec opus -strict -2 -ab 1400K data.opus', output: 'data.opus' },
+   { name: 'opus', level: 'libopus', cmd: 'ffmpeg -hide_banner -loglevel error -i $FILE -acodec libopus -ab 1400K data.opus', output: 'data.opus' },
+   { name: 'ogg vorbis', level: 'vorbis', cmd: 'ffmpeg -hide_banner -loglevel error -i $FILE -acodec vorbis -strict -2 -ab 1400K data.ogg', output: 'data.ogg' },
+   { name: 'ogg vorbis', level: 'libvorbis', cmd: 'ffmpeg -hide_banner -loglevel error -i $FILE -acodec libvorbis -ab 1400K data.ogg', output: 'data.ogg' },
+   { name: 'ogg speex', level: 'libspeex', cmd: 'ffmpeg -hide_banner -loglevel error -i $FILE -acodec libspeex -ab 1400K data.ogg', output: 'data.ogg' },
+   { name: 'wma', level: 'wmav2', cmd: 'ffmpeg -hide_banner -loglevel error -i $FILE -acodec wmav2 -ab 1400K data.wma', output: 'data.wma' },
+];
+
+if ((param === '--all') || (param === '--audio'))
+  runtest('audio-benchmark.json');
+
+files = [ 'odisea.avi' ];
+tests = [
+    { name: 'dirac', level: 'vc2', cmd: 'ffmpeg -hide_banner -loglevel warning -i $FILE -vcodec vc2 -vb 216000K -an data.mkv', output: 'data.mkv' },
+    { name: 'sorenson spark', level: 'flv1', cmd: 'ffmpeg -hide_banner -loglevel warning -i $FILE -vcodec flv -vb 216000K -an data.flv', output: 'data.flv' },
+    { name: 'h264', level: 'libx264', cmd: 'ffmpeg -hide_banner -loglevel warning -i $FILE -vcodec libx264 -vb 216000K -an data.mp4', output: 'data.mp4' },
+    { name: 'hevc', level: 'libx265', cmd: 'ffmpeg -hide_banner -loglevel warning -i $FILE -vcodec libx265 -vb 216000K -an data.mp4', output: 'data.mp4' },
+    { name: 'theora', level: 'libtheora', cmd: 'ffmpeg -hide_banner -loglevel warning -i $FILE -vcodec libtheora -vb 216000K -an data.ogg', output: 'data.ogg' },
+    { name: 'webm', level: 'libvpx (vp8)', cmd: 'ffmpeg -hide_banner -loglevel warning -i $FILE -vcodec libvpx -vb 216000K -an data.webm', output: 'data.webm' },
+    { name: 'webm', level: 'libvpx-vp9 (vp9)', cmd: 'ffmpeg -hide_banner -loglevel warning -i $FILE -vcodec libvpx-vp9 -vb 216000K -an data.webm', output: 'data.webm' },
+    { name: 'xvid', level: 'libxvid', cmd: 'ffmpeg -hide_banner -loglevel warning -i $FILE -vcodec libxvid -vb 216000K -an data.avi', output: 'data.avi' },
+    //{ name: 'av1', level: 'libaom-av1', cmd: 'ffmpeg -hide_banner -loglevel warning -i $FILE -vcodec libaom-av1 -vb 216000K -an -strict -2 data.webm', output: 'data.webm' },    
+];
+
+if ((param === '--all') || (param === '--video'))
+  runtest('video-benchmark.json');
